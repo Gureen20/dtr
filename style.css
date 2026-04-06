@@ -373,22 +373,22 @@ input:focus, select:focus {
 /* PRINT FORMAT: CS FORM NO 48 */
 .printable-page {
     width: 210mm;
-    min-height: 297mm;
+    height: 297mm;
     background: white;
     color: black;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     display: flex;
-    flex-direction: column;
-    padding: 10mm;
+    flex-direction: row;
+    padding: 5mm 10mm;
     gap: 10mm;
 }
 
 .cs-form-48 {
     flex: 1;
     border: 1px dashed #ccc;
-    padding: 15px;
+    padding: 10px;
     font-family: "Times New Roman", Times, serif;
-    font-size: 11px;
+    font-size: 10px;
 }
 
 .cs-form-title { text-align: center; margin-bottom: 10px; }
@@ -420,7 +420,7 @@ input:focus, select:focus {
 
 .cs-table th, .cs-table td {
     border: 1px solid black;
-    padding: 2px 4px;
+    padding: 1px 2px;
 }
 
 .cs-table th { font-weight: normal; }
@@ -428,10 +428,10 @@ input:focus, select:focus {
 .cs-footer {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 10px;
 }
 
-.cs-footer p { text-indent: 20px; line-height: 1.4; }
+.cs-footer p { text-indent: 20px; line-height: 1.2; }
 
 .cs-signature-line {
     border-bottom: 1px solid black;
@@ -515,6 +515,11 @@ input:focus, select:focus {
 
 /* --- PRINT MEDIA QUERY --- */
 @media print {
+    @page {
+        size: A4 portrait;
+        margin: 5mm;
+    }
+
     body {
         background: white;
         margin: 0;
@@ -535,10 +540,10 @@ input:focus, select:focus {
 
     .printable-page {
         width: 100%;
-        height: auto;
+        height: 100%;
         box-shadow: none;
         padding: 0;
-        gap: 20mm;
+        gap: 10mm;
     }
 
     .cs-form-48 {
