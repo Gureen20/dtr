@@ -1,4 +1,4 @@
-const CACHE_NAME = 'dtr-pwa-cache-v2';
+const CACHE_NAME = 'dtr-pwa-cache-v3';
 const urlsToCache = [
   './',
   './index.html',

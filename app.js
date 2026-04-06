@@ -54,6 +54,7 @@ async function getLog(dateStr) {
         id, userId: activeUserId, date: dateStr,
         amIn: null, amOut: null, pmIn: null, pmOut: null,
         undertime: 0,
+        notes: "",
         images: []
     };
 }
@@ -251,6 +252,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.dataset.action = nextAction;
         
         document.getElementById('manual-undertime').value = undertime || '';
+        document.getElementById('daily-notes').value = currentLog.notes || '';
         renderGallery();
     };
 
@@ -268,6 +270,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         currentLog.undertime = parseInt(document.getElementById('manual-undertime').value) || 0;
         await saveLog(currentLog);
         alert('Adjustments saved.');
+    });
+
+    document.getElementById('btn-save-notes').addEventListener('click', async () => {
+        if(!activeUserId || !currentLog) return;
+        currentLog.notes = document.getElementById('daily-notes').value;
+        await saveLog(currentLog);
+        alert('Accomplishment report saved.');
     });
 
     // --- Media Gallery ---
