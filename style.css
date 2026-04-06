@@ -445,6 +445,27 @@ input:focus, select:focus {
 }
 
 
+/* --- AUTH PORTAL --- */
+.auth-portal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: var(--bg-main);
+    background-image: radial-gradient(circle at center, #1e1b4b, transparent 60%);
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+.auth-portal.active {
+    display: flex;
+}
+.auth-card {
+    max-width: 400px;
+    width: 100%;
+    transform: translateY(-5%);
+}
+
 /* --- RESPONSIVE MOBILE FIXES --- */
 .mobile-header { display: none; }
 @media screen and (max-width: 1024px) {

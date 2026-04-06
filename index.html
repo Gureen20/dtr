@@ -8,28 +8,59 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="app" class="screen-dashboard">
+
+    <!-- Authentication Portal -->
+    <div id="auth-portal" class="auth-portal active">
+        <div class="card auth-card">
+            <div class="logo justify-center margin-b-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span style="font-size: 1.5rem;">DTR App</span>
+            </div>
+            <h2 id="auth-title" style="text-align: center;">Welcome Back</h2>
+            <p id="auth-subtitle" class="subtitle" style="text-align: center; margin-bottom: 2rem;">Please sign in to access your logs.</p>
+            
+            <form id="auth-form" onsubmit="event.preventDefault();">
+                <div class="form-group">
+                    <label for="auth-email">Email Address</label>
+                    <input type="email" id="auth-email" placeholder="employee@domain.com" required autocomplete="email">
+                </div>
+                <div class="form-group">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" placeholder="••••••••" required autocomplete="current-password">
+                </div>
+                
+                <p id="auth-error" style="color: var(--danger); font-size: 0.9rem; display: none; text-align: center; margin-bottom: 1rem;"></p>
+
+                <button type="submit" id="btn-auth-submit" class="btn-primary w-full">Sign In</button>
+            </form>
+
+            <div style="text-align: center; margin-top: 1.5rem;">
+                <button id="btn-auth-toggle" class="btn-secondary" style="border:none; background:transparent; color: var(--accent);">Need an account? Sign Up instead.</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Main Application Container -->
+    <div id="app" class="screen-dashboard" style="display: none;">
         <!-- Mobile Sidebar Overlay -->
         <div id="sidebar-overlay" class="overlay"></div>
 
         <!-- Sidebar Navigation -->
         <nav class="sidebar">
-            <div class="logo">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                <span>DTR App</span>
-            </div>
-            
-            <div class="user-switcher-container">
-                <label for="active-user-select" class="subtitle" style="font-size: 0.8rem;">Current User:</label>
-                <select id="active-user-select" class="input-select user-dropdown">
-                    <option value="">-- No Users Added --</option>
-                </select>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div class="logo">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <span>DTR App</span>
+                </div>
+                <p id="active-user-display" style="font-size: 0.85rem; color: var(--text-muted); word-break: break-all;">Logged in: ...</p>
+                <button id="btn-signout" class="btn-danger w-full">Sign Out</button>
             </div>
 
             <ul class="nav-links">
                 <li><button id="nav-dashboard" class="active">Dashboard</button></li>
                 <li><button id="nav-report">CS Form 48 Report</button></li>
-                <li><button id="nav-settings">Manage Users</button></li>
+                <li><button id="nav-settings">My Profile</button></li>
             </ul>
         </nav>
 
@@ -46,13 +77,6 @@
                 </div>
             </div>
             
-            <!-- Global Not-Logged-In Error Block -->
-            <div id="no-user-warning" class="full-screen-warning">
-                <h2>No User Selected</h2>
-                <p>Please select an active user from the sidebar, or go to "Manage Users" to add a new employee.</p>
-                <button class="btn-primary" onclick="document.getElementById('nav-settings').click()">Go To User Management</button>
-            </div>
-
             <!-- Dashboard View -->
             <section id="view-dashboard" class="view active">
                 <header class="top-header">
@@ -68,10 +92,10 @@
                         <h2>Time Clock</h2>
                         <div class="clock-status">
                             <span class="status-indicator"></span>
-                            <span id="current-status-text">Not Clocked In</span>
+                            <span id="current-status-text">Loading...</span>
                         </div>
                         <div class="action-area">
-                            <button id="btn-clock-action" class="btn-primary">Clock In (AM)</button>
+                            <button id="btn-clock-action" class="btn-primary" disabled>Please wait...</button>
                         </div>
                         <div class="today-logs">
                             <div class="log-entry"><span>AM Arrival</span> <b id="log-am-in">--:--</b></div>
@@ -136,33 +160,21 @@
              <!-- Settings / Users View -->
              <section id="view-settings" class="view">
                 <header class="top-header">
-                    <h1>Manage Users</h1>
-                    <p class="subtitle">Add or edit employees using this machine.</p>
+                    <h1>My Profile</h1>
+                    <p class="subtitle">Set your display name and standard hours for the official Form 48 export.</p>
                 </header>
                 
-                <div class="dashboard-grid">
-                    <div class="card settings-card">
-                        <h2 id="user-form-title">Add New User</h2>
-                        <input type="hidden" id="edit-user-id" />
-                        <div class="form-group">
-                            <label for="setting-name">Full Name (For Form 48)</label>
-                            <input type="text" id="setting-name" placeholder="John Doe" autocomplete="off">
-                        </div>
-                        <div class="form-group">
-                            <label for="setting-hours">Regular Prescribed Official Hours</label>
-                            <input type="text" id="setting-hours" placeholder="8:00 AM - 5:00 PM" autocomplete="off">
-                        </div>
-                        <div style="display:flex; gap: 1rem;">
-                            <button id="btn-save-user" class="btn-primary">Save User</button>
-                            <button id="btn-cancel-edit" class="btn-secondary" style="display:none;">Cancel Edit</button>
-                        </div>
+                <div class="card settings-card" style="max-width: 600px;">
+                    <div class="form-group">
+                        <label for="setting-name">Full Name (For Form 48)</label>
+                        <input type="text" id="setting-name" placeholder="John Doe" autocomplete="off">
                     </div>
-
-                    <div class="card users-list-card">
-                        <h2>Registered Users</h2>
-                        <div id="users-list-container" class="users-list">
-                            <!-- Populated dynamically -->
-                        </div>
+                    <div class="form-group">
+                        <label for="setting-hours">Regular Prescribed Official Hours</label>
+                        <input type="text" id="setting-hours" placeholder="8:00 AM - 5:00 PM" autocomplete="off">
+                    </div>
+                    <div style="margin-top: 1rem;">
+                        <button id="btn-save-user" class="btn-primary">Save Profile Info</button>
                     </div>
                 </div>
             </section>

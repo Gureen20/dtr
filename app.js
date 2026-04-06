@@ -1,8 +1,15 @@
 /**
- * Firebase Realtime Database Wrapper (Replaces IndexedDB)
+ * Firebase Realtime Database & Authentication Wrapper
  */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+import { 
+    getAuth, 
+    onAuthStateChanged, 
+    signInWithEmailAndPassword, 
+    createUserWithEmailAndPassword, 
+    signOut 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDef37ugR50qWYnwX5S_b-L6Zg-P4An6fw",
@@ -17,40 +24,34 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
 
-// --- DB Hooks for Users ---
-async function saveUserDB(userObj) {
-    await set(ref(db, 'users/' + userObj.id), userObj);
+// Global State
+let activeUserId = null;
+
+// --- DB Hooks for Current User ---
+async function saveUserProfile(userObj) {
+    if(!activeUserId) return false;
+    await set(ref(db, 'users/' + activeUserId), userObj);
     return true;
 }
 
-async function getAllUsersDB() {
-    const snapshot = await get(ref(db, 'users'));
-    if (snapshot.exists()) {
-        return Object.values(snapshot.val());
-    }
-    return [];
-}
-
-async function deleteUserDB(id) {
-    await remove(ref(db, 'users/' + id));
-    return true;
-}
-
-async function getUserDB(id) {
-    const snapshot = await get(ref(db, 'users/' + id));
+async function getUserProfile() {
+    if(!activeUserId) return null;
+    const snapshot = await get(ref(db, 'users/' + activeUserId));
     return snapshot.exists() ? snapshot.val() : null;
 }
 
 // --- DB Hooks for Logs ---
-async function getLog(userId, dateStr) {
-    const id = `${userId}_${dateStr}`;
+async function getLog(dateStr) {
+    if(!activeUserId) return null;
+    const id = `${activeUserId}_${dateStr}`;
     const snapshot = await get(ref(db, 'logs/' + id));
     if (snapshot.exists()) {
         return snapshot.val();
     }
     return {
-        id, userId, date: dateStr,
+        id, userId: activeUserId, date: dateStr,
         amIn: null, amOut: null, pmIn: null, pmOut: null,
         undertime: 0,
         images: []
@@ -58,6 +59,7 @@ async function getLog(userId, dateStr) {
 }
 
 async function saveLog(logData) {
+    if(!activeUserId) return false;
     await set(ref(db, 'logs/' + logData.id), logData);
     return true;
 }
@@ -76,10 +78,89 @@ const formatTime = (dateObj) => {
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
+
+    // DOM Elements
+    const authPortal = document.getElementById('auth-portal');
+    const mainApp = document.getElementById('app');
+    const activeUserDisplay = document.getElementById('active-user-display');
+    const btnSignout = document.getElementById('btn-signout');
     
-    // Global User State
-    let usersList = [];
-    let activeUserId = localStorage.getItem('lastActiveUser') || null;
+    // --- Authentication Logic ---
+    const authForm = document.getElementById('auth-form');
+    const inputEmail = document.getElementById('auth-email');
+    const inputPassword = document.getElementById('auth-password');
+    const btnSubmit = document.getElementById('btn-auth-submit');
+    const btnToggle = document.getElementById('btn-auth-toggle');
+    const authError = document.getElementById('auth-error');
+    const authTitle = document.getElementById('auth-title');
+
+    let isSignUpMode = false;
+
+    btnToggle.addEventListener('click', () => {
+        isSignUpMode = !isSignUpMode;
+        if(isSignUpMode) {
+            authTitle.innerText = "Create Account";
+            btnSubmit.innerText = "Sign Up";
+            btnToggle.innerText = "Already have an account? Sign In instead.";
+        } else {
+            authTitle.innerText = "Welcome Back";
+            btnSubmit.innerText = "Sign In";
+            btnToggle.innerText = "Need an account? Sign Up instead.";
+        }
+        authError.style.display = 'none';
+        inputPassword.value = '';
+    });
+
+    authForm.addEventListener('submit', async () => {
+        const email = inputEmail.value.trim();
+        const password = inputPassword.value;
+        authError.style.display = 'none';
+        btnSubmit.disabled = true;
+        btnSubmit.innerText = "Please wait...";
+
+        try {
+            if(isSignUpMode) {
+                await createUserWithEmailAndPassword(auth, email, password);
+                // On success, Firebase redirects to onAuthStateChanged auto-login
+            } else {
+                await signInWithEmailAndPassword(auth, email, password);
+            }
+        } catch (error) {
+            authError.innerText = error.message.replace('Firebase: ', '');
+            authError.style.display = 'block';
+            btnSubmit.disabled = false;
+            btnSubmit.innerText = isSignUpMode ? "Sign Up" : "Sign In";
+        }
+    });
+
+    btnSignout.addEventListener('click', async () => {
+        await signOut(auth);
+    });
+
+    // Central Auth State Observer
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            // User is signed in
+            activeUserId = user.uid;
+            authPortal.classList.remove('active');
+            mainApp.style.display = 'flex';
+            inputPassword.value = '';
+            btnSubmit.disabled = false;
+            btnSubmit.innerText = isSignUpMode ? "Sign Up" : "Sign In";
+            
+            activeUserDisplay.innerText = `Logged in: ${user.email}`;
+            
+            // Boot User App State
+            await loadProfileData();
+            await reloadTodayLogs();
+            refreshReportOptions();
+        } else {
+            // User is signed out
+            activeUserId = null;
+            authPortal.classList.add('active');
+            mainApp.style.display = 'none';
+        }
+    });
 
     // --- Core Navigation ---
     const navDashboard = document.getElementById('nav-dashboard');
@@ -93,10 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         navButtons.forEach(b => b.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
         activeNav.classList.add('active');
-        
-        if(viewId === 'view-report') {
-            refreshReportOptions();
-        }
+        if(viewId === 'view-report') refreshReportOptions();
     };
 
     navDashboard.addEventListener('click', () => switchView('view-dashboard', navDashboard));
@@ -115,7 +193,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Auto-close sidebar on mobile when a link or overlay is clicked
     const closeSidebarIfMobile = () => {
         if(window.innerWidth <= 768) {
             sidebar.classList.remove('open');
@@ -131,32 +208,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         timeDisplay.innerText = new Date().toLocaleString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }, 1000);
 
-    // --- Global App Scoping updates ---
-    const updateGlobalScope = async () => {
-        // Enforce warnings if no active string is running
-        const warningBlock = document.getElementById('no-user-warning');
-        const dashboardView = document.getElementById('view-dashboard');
-        
-        if(!activeUserId) {
-            warningBlock.style.display = 'block';
-            dashboardView.style.opacity = '0.1';
-            dashboardView.style.pointerEvents = 'none';
-        } else {
-            warningBlock.style.display = 'none';
-            dashboardView.style.opacity = '1';
-            dashboardView.style.pointerEvents = 'auto';
-            // Actually reload dashboard logs 
-            await reloadTodayLogs();
-        }
-    };
-
     // --- Dashboard Specific Tracking ---
     let currentLog = null;
     
     const reloadTodayLogs = async () => {
         if(!activeUserId) return;
         let todayDateStr = getTodayStr();
-        currentLog = await getLog(activeUserId, todayDateStr);
+        currentLog = await getLog(todayDateStr);
         checkLogState();
     };
 
@@ -200,20 +258,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         if(!activeUserId) return;
         const action = e.target.dataset.action;
         if (!action) return;
-        const now = new Date();
-        currentLog[action] = formatTime(now);
+        currentLog[action] = formatTime(new Date());
         await saveLog(currentLog);
         checkLogState();
     });
 
     document.getElementById('btn-save-adjustment').addEventListener('click', async () => {
         if(!activeUserId) return;
-        const undertime = parseInt(document.getElementById('manual-undertime').value) || 0;
-        currentLog.undertime = undertime;
+        currentLog.undertime = parseInt(document.getElementById('manual-undertime').value) || 0;
         await saveLog(currentLog);
         alert('Adjustments saved.');
     });
-
 
     // --- Media Gallery ---
     const uploadZone = document.getElementById('upload-zone');
@@ -254,131 +309,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    // --- User Switching (Sidebar Dropdown) ---
-    const selectUserUi = document.getElementById('active-user-select');
-    
-    selectUserUi.addEventListener('change', async (e) => {
-        activeUserId = e.target.value;
-        if(activeUserId) {
-            localStorage.setItem('lastActiveUser', activeUserId);
-        } else {
-            localStorage.removeItem('lastActiveUser');
-        }
-        updateGlobalScope();
-        refreshReportOptions();
-    });
-
-    const repopulateDropdown = () => {
-        selectUserUi.innerHTML = '<option value="">-- Select Active User --</option>';
-        usersList.forEach(u => {
-            const isSelected = (u.id === activeUserId) ? 'selected' : '';
-            selectUserUi.innerHTML += `<option value="${u.id}" ${isSelected}>${u.name}</option>`;
-        });
-    };
-
-    // --- User Management Engine (Settings View) ---
-    const renderUsersList = () => {
-        const listDiv = document.getElementById('users-list-container');
-        listDiv.innerHTML = '';
-        if(usersList.length === 0) {
-            listDiv.innerHTML = '<p class="subtitle">No users added yet.</p>';
-            return;
-        }
-
-        usersList.forEach(user => {
-            const div = document.createElement('div');
-            div.className = 'user-item';
-            div.innerHTML = `
-                <div class="user-info">
-                    <strong>${user.name}</strong>
-                    <small>Hours: ${user.prescribed_hours}</small>
-                </div>
-                <div class="user-actions">
-                    <button class="btn-secondary btn-sm" onclick="appContext.editUser('${user.id}')">Edit</button>
-                    <button class="btn-danger btn-sm" onclick="appContext.deleteUser('${user.id}')">Delete</button>
-                </div>
-            `;
-            listDiv.appendChild(div);
-        });
-        repopulateDropdown();
-    };
-
-    const loadUsersEngine = async () => {
-        usersList = await getAllUsersDB();
-        
-        // Safety bounds
-        if(activeUserId && !usersList.find(u => u.id === activeUserId)) {
-            activeUserId = null;
-            localStorage.removeItem('lastActiveUser');
-        }
-
-        renderUsersList();
-        updateGlobalScope();
-    };
-
-    const inputUserId = document.getElementById('edit-user-id');
+    // --- Profile Management Engine (Replaces Users Engine) ---
     const inputName = document.getElementById('setting-name');
     const inputHours = document.getElementById('setting-hours');
-    const btnCancel = document.getElementById('btn-cancel-edit');
-    const titleForm = document.getElementById('user-form-title');
+
+    const loadProfileData = async () => {
+        const p = await getUserProfile();
+        inputName.value = p ? p.name : '';
+        inputHours.value = p ? p.prescribed_hours : '';
+    };
 
     document.getElementById('btn-save-user').addEventListener('click', async () => {
         const nameVal = inputName.value.trim();
         const hrsVal = inputHours.value.trim();
         if(!nameVal) return alert('Name is required');
 
-        const uId = inputUserId.value || 'usr_' + Date.now();
-        const userObj = {
-            id: uId,
+        await saveUserProfile({
+            id: activeUserId,
             name: nameVal,
             prescribed_hours: hrsVal
-        };
-
-        await saveUserDB(userObj);
-        
-        // Auto select if first user
-        if(usersList.length === 0 && !activeUserId) {
-            activeUserId = uId;
-            localStorage.setItem('lastActiveUser', uId);
-        }
-
-        resetUserForm();
-        await loadUsersEngine();
+        });
+        alert('Profile Updated Successfully!');
     });
-
-    const resetUserForm = () => {
-        inputName.value = '';
-        inputHours.value = '';
-        inputUserId.value = '';
-        titleForm.innerText = 'Add New User';
-        btnCancel.style.display = 'none';
-    };
-
-    btnCancel.addEventListener('click', resetUserForm);
-
-    // Context Bridge for inline onclick html hooks
-    window.appContext = {
-        editUser: (id) => {
-            const user = usersList.find(u => u.id === id);
-            if(!user) return;
-            inputUserId.value = user.id;
-            inputName.value = user.name;
-            inputHours.value = user.prescribed_hours;
-            titleForm.innerText = 'Edit User: ' + user.name;
-            btnCancel.style.display = 'inline-block';
-        },
-        deleteUser: async (id) => {
-            if(confirm("Delete this user? Cannot be undone.")) {
-                await deleteUserDB(id);
-                if(activeUserId === id) {
-                    activeUserId = null;
-                    localStorage.removeItem('lastActiveUser');
-                }
-                resetUserForm();
-                await loadUsersEngine();
-            }
-        }
-    };
 
 
     // --- Report / Print Engine ---
@@ -409,13 +361,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const printContainer = document.getElementById('printable-form-container');
         
         if(!activeUserId) {
-            printContainer.innerHTML = '<div style="padding: 2rem; color: #ef4444; font-weight: bold;">Error: No active user selected. Please select a user from the sidebar first.</div>';
+            printContainer.innerHTML = '<div style="color: #ef4444; font-weight: bold;">Error: Not logged in.</div>';
             return;
         }
 
         const m = parseInt(reportMonth.value);
         const y = parseInt(reportYear.value);
-        const currentUser = await getUserDB(activeUserId);
+        const currentUser = await getUserProfile();
         
         const userName = currentUser ? currentUser.name : 'Unknown User';
         const userHours = currentUser ? currentUser.prescribed_hours : '';
@@ -438,7 +390,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const daysInMonth = new Date(y, m + 1, 0).getDate();
         let rows = '';
-
         let totalUndertimeMins = 0;
 
         for(let i=1; i<=daysInMonth; i++) {
@@ -541,6 +492,4 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.print();
     });
 
-    // Boot Up
-    await loadUsersEngine();
 });
