@@ -519,11 +519,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Profile Management Engine (Replaces Users Engine) ---
     const inputName = document.getElementById('setting-name');
     const inputHours = document.getElementById('setting-hours');
+    const inputAgency = document.getElementById('setting-agency');
+    const inputSigName = document.getElementById('setting-signatory-name');
+    const inputSigTitle = document.getElementById('setting-signatory-title');
 
     const loadProfileData = async () => {
         const p = await getUserProfile();
-        inputName.value = p ? p.name : '';
-        inputHours.value = p ? p.prescribed_hours : '';
+        inputName.value = p ? (p.name || '') : '';
+        inputHours.value = p ? (p.prescribed_hours || '') : '';
+        inputAgency.value = p ? (p.agency || '') : '';
+        inputSigName.value = p ? (p.signatory_name || '') : '';
+        inputSigTitle.value = p ? (p.signatory_title || '') : '';
     };
 
     document.getElementById('btn-save-user').addEventListener('click', async () => {
@@ -534,7 +540,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         await saveUserProfile({
             id: activeUserId,
             name: nameVal,
-            prescribed_hours: hrsVal
+            prescribed_hours: hrsVal,
+            agency: inputAgency.value.trim(),
+            signatory_name: inputSigName.value.trim(),
+            signatory_title: inputSigTitle.value.trim()
         });
         alert('Profile Updated Successfully!');
     });
@@ -578,6 +587,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const userName = currentUser ? currentUser.name : 'Unknown User';
         const userHours = currentUser ? currentUser.prescribed_hours : '';
+        const userAgency = (currentUser && currentUser.agency) ? currentUser.agency.replace(/\n/g, '<br>') : '';
+        const userSigName = (currentUser && currentUser.signatory_name) ? currentUser.signatory_name : '';
+        const userSigTitle = (currentUser && currentUser.signatory_title) ? currentUser.signatory_title : '';
         const monthName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m];
 
         // Fetch logs from Firebase exactly matching user/month
@@ -657,8 +669,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="cs-form-48">
                 <div class="cs-form-title">
                     <h4>Civil Service Form No. 48</h4>
+                    ${userAgency ? `<div style="margin: 0.5rem 0; font-size: 0.85em; font-weight: bold; text-transform: uppercase; line-height: 1.2;">${userAgency}</div>` : ''}
                     <h3>DAILY TIME RECORD</h3>
-                    <div class="cs-emp-name">----- ${userName} -----</div>
+                    <div style="font-size: 1.2em; font-weight: bold;">---o0o---</div>
+                    <div class="cs-emp-name" style="margin-top: 10px; font-weight: bold; text-transform: uppercase;">${userName}</div>
                     <div>(Name)</div>
                 </div>
                 <div class="cs-header-info">
@@ -671,14 +685,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 </div>
                 ${tableTemplate}
                 <div class="cs-footer">
-                    <p>
+                    <p style="text-indent: 1.5rem; text-align: justify; margin-bottom: 1.5rem;">
                         I certify on my honor that the above is a true and correct report of the hours of work performed, record of which was made daily at the time of arrival and departure from office.
                     </p>
                     <div class="cs-signature-line"></div>
-                    <div class="cs-signature-label">(Signature)</div>
-                    <p>VERIFIED as to the prescribed office hours:</p>
-                    <div class="cs-signature-line"></div>
-                    <div class="cs-signature-label">(In Charge)</div>
+                    <div class="cs-signature-label" style="text-align: center;">(Signature)</div>
+                    <p style="margin-top: 0.5rem;">VERIFIED as to the prescribed office hours:</p>
+                    <div style="text-align: center; margin-top: 1.5rem;">
+                        <div style="border-top: 1px solid black; display: inline-block; min-width: 250px; padding-top: 4px;">
+                            <div style="font-weight: bold; font-size: 0.9em;">${userSigName || '(In Charge)'}</div>
+                            <div style="font-size: 0.85em;">${userSigTitle}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
