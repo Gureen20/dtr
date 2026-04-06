@@ -142,6 +142,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     navReport.addEventListener('click', () => switchView('view-report', navReport));
     navSettings.addEventListener('click', () => switchView('view-settings', navSettings));
 
+    // --- Mobile Sidebar Toggle ---
+    const sidebar = document.querySelector('.sidebar');
+    const menuToggle = document.getElementById('btn-menu-toggle');
+    if (menuToggle) {
+        menuToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('open');
+        });
+    }
+
+    // Auto-close sidebar on mobile when a link is clicked
+    const closeSidebarIfMobile = () => {
+        if(window.innerWidth <= 768) {
+            sidebar.classList.remove('open');
+        }
+    };
+    navButtons.forEach(btn => btn.addEventListener('click', closeSidebarIfMobile));
+
     // --- Clock Clock ---
     const timeDisplay = document.getElementById('current-date-time');
     setInterval(() => {

@@ -445,6 +445,44 @@ input:focus, select:focus {
 }
 
 
+/* --- RESPONSIVE MOBILE FIXES --- */
+.mobile-header { display: none; }
+@media screen and (max-width: 1024px) {
+    .dashboard-grid { grid-template-columns: 1fr; }
+    .main-content { padding: 1.5rem; }
+    .full-screen-warning { width: 90%; }
+}
+@media screen and (max-width: 768px) {
+    .mobile-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 1.5rem;
+    }
+    .hamburger {
+        background: transparent; border: none; color: white; cursor: pointer;
+    }
+    .main-content { padding: 1.25rem 1rem; }
+    .sidebar {
+        position: fixed;
+        left: -100%;
+        top: 0;
+        height: 100vh;
+        z-index: 999;
+        transition: left 0.3s ease;
+        box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+    }
+    .sidebar.open {
+        left: 0;
+    }
+    .report-header { flex-direction: column; gap: 1rem; align-items: stretch; }
+    .report-controls { flex-direction: column; }
+    h1 { font-size: 1.8rem; }
+    .top-header { margin-bottom: 1.5rem; }
+}
+
 /* --- PRINT MEDIA QUERY --- */
 @media print {
     body {
