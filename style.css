@@ -234,6 +234,47 @@ h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 0.25rem; }
     color: white;
 }
 
+.btn-icon-only {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 0.25rem;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.btn-icon-only:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--text-main);
+}
+.btn-icon-only.danger:hover {
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.post-actions-bar {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.edit-indicator {
+    background: rgba(59, 130, 246, 0.2);
+    color: #93c5fd;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    font-size: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.edit-indicator.hidden {
+    display: none;
+}
+
 .btn-sm {
     padding: 0.4rem 0.8rem;
     font-size: 0.9rem;

@@ -275,24 +275,71 @@ document.addEventListener('DOMContentLoaded', async () => {
     const postImageNameSpan = document.getElementById('post-image-name');
     const postTextarea = document.getElementById('post-text');
     const btnPostUpdate = document.getElementById('btn-post-update');
+    const composerEditAlert = document.getElementById('composer-edit-alert');
+    const btnCancelEdit = document.getElementById('btn-cancel-edit');
     
     let currentPendingImageBase64 = null;
+    let editingPostId = null;
+
+    function resizeImage(file, maxWidth, maxHeight) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round(height * (maxWidth / width));
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round(width * (maxHeight / height));
+                            height = maxHeight;
+                        }
+                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8));
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
 
     if (postImageInput) {
-        postImageInput.addEventListener('change', (e) => {
+        postImageInput.addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) {
                 postImageNameSpan.innerText = '';
                 currentPendingImageBase64 = null;
                 return;
             }
+            postImageNameSpan.innerText = file.name + ' (compressing...)';
+            currentPendingImageBase64 = await resizeImage(file, 800, 800);
             postImageNameSpan.innerText = file.name;
-            
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                currentPendingImageBase64 = ev.target.result;
-            };
-            reader.readAsDataURL(file);
+        });
+    }
+
+    const resetComposer = () => {
+        postTextarea.value = '';
+        postImageInput.value = '';
+        postImageNameSpan.innerText = '';
+        currentPendingImageBase64 = null;
+        editingPostId = null;
+        composerEditAlert.classList.add('hidden');
+        btnPostUpdate.innerText = "Post Update";
+    };
+
+    if (btnCancelEdit) {
+        btnCancelEdit.addEventListener('click', () => {
+            resetComposer();
         });
     }
 
@@ -302,30 +349,33 @@ document.addEventListener('DOMContentLoaded', async () => {
             const text = postTextarea.value.trim();
             if (!text && !currentPendingImageBase64) return alert("Please enter text or attach an image.");
 
-            const newPost = {
-                id: Date.now().toString(),
-                time: new Date().toISOString(),
-                text: text,
-                image: currentPendingImageBase64
-            };
-
             currentLog.posts = currentLog.posts || [];
-            currentLog.posts.push(newPost);
             
             btnPostUpdate.disabled = true;
-            btnPostUpdate.innerText = "Posting...";
+            btnPostUpdate.innerText = "Saving...";
+
+            if (editingPostId) {
+                const postIndex = currentLog.posts.findIndex(p => p.id === editingPostId);
+                if (postIndex !== -1) {
+                    currentLog.posts[postIndex].text = text;
+                    if (currentPendingImageBase64) {
+                        currentLog.posts[postIndex].image = currentPendingImageBase64;
+                    }
+                }
+            } else {
+                const newPost = {
+                    id: Date.now().toString(),
+                    time: new Date().toISOString(),
+                    text: text,
+                    image: currentPendingImageBase64
+                };
+                currentLog.posts.push(newPost);
+            }
             
             await saveLog(currentLog);
-            
-            // Reset composer
-            postTextarea.value = '';
-            postImageInput.value = '';
-            postImageNameSpan.innerText = '';
-            currentPendingImageBase64 = null;
+            resetComposer();
             
             btnPostUpdate.disabled = false;
-            btnPostUpdate.innerText = "Post Update";
-            
             renderFeed();
         });
     }
@@ -371,10 +421,21 @@ document.addEventListener('DOMContentLoaded', async () => {
             const timeStr = new Date(post.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
             let imgHtml = post.image ? `<img src="${post.image}" style="max-width: 100%; border-radius: var(--radius-md); margin-top: 1rem; border: 1px solid rgba(255,255,255,0.1); display: block;">` : '';
             
+            let downloadBtn = post.image ? `<a href="${post.image}" download="post_${post.id}.jpg" class="btn-icon-only" title="Download Image"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></a>` : '';
+
             allHtml += `
-                <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg); padding: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
+                <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg); padding: 1.5rem;" data-post-id="${post.id}">
+                    <div style="display: flex; justify-content: space-between; align-items:flex-start; margin-bottom: 0.75rem;">
                         <strong style="color: var(--accent); font-size: 0.9rem;">${timeStr}</strong>
+                        <div class="post-actions-bar">
+                            ${downloadBtn}
+                            <button class="btn-icon-only action-edit" title="Edit Post">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                            </button>
+                            <button class="btn-icon-only danger action-delete" title="Delete Post">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                            </button>
+                        </div>
                     </div>
                     <p style="white-space: pre-wrap; line-height: 1.5; color: white;">${post.text}</p>
                     ${imgHtml}
@@ -383,6 +444,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         feedContainer.innerHTML = allHtml;
+
+        // Attach event listeners for delete and edit
+        feedContainer.querySelectorAll('.action-delete').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const postId = e.currentTarget.closest('div[data-post-id]').dataset.postId;
+                if(confirm("Are you sure you want to delete this post?")) {
+                    currentLog.posts = currentLog.posts.filter(p => p.id !== postId);
+                    await saveLog(currentLog);
+                    renderFeed();
+                }
+            });
+        });
+
+        feedContainer.querySelectorAll('.action-edit').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const postId = e.currentTarget.closest('div[data-post-id]').dataset.postId;
+                const post = currentLog.posts.find(p => p.id === postId);
+                if (post) {
+                    editingPostId = post.id;
+                    postTextarea.value = post.text;
+                    currentPendingImageBase64 = null; // Don't wipe the DB image unless a new one is selected
+                    postImageNameSpan.innerText = post.image ? "(Image attached)" : "";
+                    
+                    composerEditAlert.classList.remove('hidden');
+                    btnPostUpdate.innerText = "Save Changes";
+                    postTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    postTextarea.focus();
+                }
+            });
+        });
     };
 
     // --- Profile Management Engine (Replaces Users Engine) ---

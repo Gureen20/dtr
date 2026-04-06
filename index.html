@@ -121,19 +121,25 @@
                         <p class="subtitle">Post your updates and attach images like a blog feed.</p>
                         
                         <!-- Composer -->
-                        <div class="form-group" style="margin-top: 1.5rem; background: rgba(0,0,0,0.2); padding: 1.5rem; border-radius: var(--radius-lg); border: 1px solid var(--border);">
-                            <textarea id="post-text" style="width: 100%; min-height: 80px; resize: none; background: transparent; border: none; outline: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 0.5rem 0; margin-bottom: 1rem;" placeholder="What are you working on right now?"></textarea>
-                            
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div style="display: flex; align-items: center;">
-                                    <input type="file" id="post-image" accept="image/*" hidden>
-                                    <button class="btn-secondary btn-sm" onclick="document.getElementById('post-image').click()" style="display: flex; align-items: center; gap: 0.5rem;">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                                        Attach Image
-                                    </button>
-                                    <span id="post-image-name" style="font-size: 0.8rem; margin-left: 0.75rem; color: var(--text-muted);"></span>
+                        <div class="form-group" style="margin-top: 1.5rem; background: rgba(0,0,0,0.2); border-radius: var(--radius-lg); border: 1px solid var(--border);">
+                            <div id="composer-edit-alert" class="edit-indicator hidden">
+                                <span>Editing an existing post...</span>
+                                <button id="btn-cancel-edit" style="background: transparent; border: none; color: inherit; font-size: 0.8rem; text-decoration: underline;">Cancel</button>
+                            </div>
+                            <div style="padding: 1.5rem;">
+                                <textarea id="post-text" style="width: 100%; min-height: 80px; resize: none; background: transparent; border: none; outline: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 0.5rem 0; margin-bottom: 1rem;" placeholder="What are you working on right now?"></textarea>
+                                
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="display: flex; align-items: center;">
+                                        <input type="file" id="post-image" accept="image/*" hidden>
+                                        <button class="btn-secondary btn-sm" onclick="document.getElementById('post-image').click()" style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                            Attach Image
+                                        </button>
+                                        <span id="post-image-name" style="font-size: 0.8rem; margin-left: 0.75rem; color: var(--text-muted);"></span>
+                                    </div>
+                                    <button id="btn-post-update" class="btn-primary btn-sm" style="padding: 0.6rem 1.2rem;">Post Update</button>
                                 </div>
-                                <button id="btn-post-update" class="btn-primary btn-sm" style="padding: 0.6rem 1.2rem;">Post Update</button>
                             </div>
                         </div>
 
