@@ -1,104 +1,65 @@
 /**
- * Database Wrapper (IndexedDB)
+ * Firebase Realtime Database Wrapper (Replaces IndexedDB)
  */
-const DB_NAME = 'DTR_Database';
-const DB_VERSION = 2; // Bumped version for multi-user upgrade
-const STORE_USERS = 'users'; // Key: 'id'
-const STORE_LOGS = 'user_logs'; // Key: 'userId_date'
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getDatabase, ref, set, get, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-function initDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        
-        request.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            // Create Users store
-            if (!db.objectStoreNames.contains(STORE_USERS)) {
-                db.createObjectStore(STORE_USERS, { keyPath: 'id' });
-            }
-            // Create New Logs Store (Multi-tenant)
-            if (!db.objectStoreNames.contains(STORE_LOGS)) {
-                db.createObjectStore(STORE_LOGS, { keyPath: 'id' }); // id will be 'userId_date'
-            }
-        };
+const firebaseConfig = {
+  apiKey: "AIzaSyDef37ugR50qWYnwX5S_b-L6Zg-P4An6fw",
+  authDomain: "dtr-app-e47be.firebaseapp.com",
+  databaseURL: "https://dtr-app-e47be-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dtr-app-e47be",
+  storageBucket: "dtr-app-e47be.firebasestorage.app",
+  messagingSenderId: "816024143039",
+  appId: "1:816024143039:web:edfc2cbfb5d740ec03320a",
+  measurementId: "G-Q1QXEF2E0P"
+};
 
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-    });
-}
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
 // --- DB Hooks for Users ---
 async function saveUserDB(userObj) {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_USERS, 'readwrite');
-        const store = tx.objectStore(STORE_USERS);
-        const req = store.put(userObj);
-        req.onsuccess = () => resolve(true);
-        req.onerror = () => reject(req.error);
-    });
+    await set(ref(db, 'users/' + userObj.id), userObj);
+    return true;
 }
 
 async function getAllUsersDB() {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_USERS, 'readonly');
-        const store = tx.objectStore(STORE_USERS);
-        const req = store.getAll();
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-    });
+    const snapshot = await get(ref(db, 'users'));
+    if (snapshot.exists()) {
+        return Object.values(snapshot.val());
+    }
+    return [];
 }
 
 async function deleteUserDB(id) {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_USERS, 'readwrite');
-        const store = tx.objectStore(STORE_USERS);
-        const req = store.delete(id);
-        req.onsuccess = () => resolve(true);
-        req.onerror = () => reject(req.error);
-    });
+    await remove(ref(db, 'users/' + id));
+    return true;
 }
 
 async function getUserDB(id) {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_USERS, 'readonly');
-        const store = tx.objectStore(STORE_USERS);
-        const req = store.get(id);
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
-    });
+    const snapshot = await get(ref(db, 'users/' + id));
+    return snapshot.exists() ? snapshot.val() : null;
 }
 
 // --- DB Hooks for Logs ---
 async function getLog(userId, dateStr) {
-    const db = await initDB();
     const id = `${userId}_${dateStr}`;
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_LOGS, 'readonly');
-        const store = tx.objectStore(STORE_LOGS);
-        const req = store.get(id);
-        req.onsuccess = () => resolve(req.result || {
-            id, userId, date: dateStr,
-            amIn: null, amOut: null, pmIn: null, pmOut: null,
-            undertime: 0,
-            images: []
-        });
-        req.onerror = () => reject(req.error);
-    });
+    const snapshot = await get(ref(db, 'logs/' + id));
+    if (snapshot.exists()) {
+        return snapshot.val();
+    }
+    return {
+        id, userId, date: dateStr,
+        amIn: null, amOut: null, pmIn: null, pmOut: null,
+        undertime: 0,
+        images: []
+    };
 }
 
 async function saveLog(logData) {
-    const db = await initDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_LOGS, 'readwrite');
-        const store = tx.objectStore(STORE_LOGS);
-        const req = store.put(logData);
-        req.onsuccess = () => resolve(true);
-        req.onerror = () => reject(req.error);
-    });
+    await set(ref(db, 'logs/' + logData.id), logData);
+    return true;
 }
 
 /**
@@ -170,7 +131,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         timeDisplay.innerText = new Date().toLocaleString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
     }, 1000);
 
-
     // --- Global App Scoping updates ---
     const updateGlobalScope = async () => {
         // Enforce warnings if no active string is running
@@ -189,7 +149,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             await reloadTodayLogs();
         }
     };
-
 
     // --- Dashboard Specific Tracking ---
     let currentLog = null;
@@ -462,23 +421,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         const userHours = currentUser ? currentUser.prescribed_hours : '';
         const monthName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m];
 
-        // Fetch logs
-        const db = await initDB();
-        const tx = db.transaction(STORE_LOGS, 'readonly');
-        const store = tx.objectStore(STORE_LOGS);
-        const allLogs = await new Promise((res, rej) => {
-            const req = store.getAll();
-            req.onsuccess = () => res(req.result);
-            req.onerror = () => rej(req.error);
-        });
-
-        const monthLogs = allLogs.filter(log => {
-            const d = new Date(log.date);
-            return log.userId === activeUserId && d.getMonth() === m && d.getFullYear() === y;
-        }).reduce((acc, log) => {
-            acc[log.date] = log;
-            return acc;
-        }, {});
+        // Fetch logs from Firebase exactly matching user/month
+        const snapshot = await get(ref(db, 'logs'));
+        let monthLogs = {};
+        
+        if(snapshot.exists()) {
+            const allLogs = Object.values(snapshot.val());
+            monthLogs = allLogs.filter(log => {
+                const d = new Date(log.date);
+                return log.userId === activeUserId && d.getMonth() === m && d.getFullYear() === y;
+            }).reduce((acc, log) => {
+                acc[log.date] = log;
+                return acc;
+            }, {});
+        }
 
         const daysInMonth = new Date(y, m + 1, 0).getDate();
         let rows = '';
