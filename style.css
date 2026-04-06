@@ -464,6 +464,15 @@ input:focus, select:focus {
     .hamburger {
         background: transparent; border: none; color: white; cursor: pointer;
     }
+    .overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 998;
+        backdrop-filter: blur(2px);
+    }
+    .overlay.active { display: block; }
     .main-content { padding: 1.25rem 1rem; }
     .sidebar {
         position: fixed;

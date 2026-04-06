@@ -145,19 +145,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Mobile Sidebar Toggle ---
     const sidebar = document.querySelector('.sidebar');
     const menuToggle = document.getElementById('btn-menu-toggle');
+    const overlay = document.getElementById('sidebar-overlay');
+    
     if (menuToggle) {
         menuToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('open');
+            sidebar.classList.add('open');
+            if(overlay) overlay.classList.add('active');
         });
     }
 
-    // Auto-close sidebar on mobile when a link is clicked
+    // Auto-close sidebar on mobile when a link or overlay is clicked
     const closeSidebarIfMobile = () => {
         if(window.innerWidth <= 768) {
             sidebar.classList.remove('open');
+            if(overlay) overlay.classList.remove('active');
         }
     };
     navButtons.forEach(btn => btn.addEventListener('click', closeSidebarIfMobile));
+    if(overlay) overlay.addEventListener('click', closeSidebarIfMobile);
 
     // --- Clock Clock ---
     const timeDisplay = document.getElementById('current-date-time');
