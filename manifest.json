@@ -1,0 +1,21 @@
+{
+  "name": "Daily Time Record",
+  "short_name": "DTR App",
+  "description": "Multi-User Daily Time Record Application",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#3b82f6",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='100%' height='100%' fill='%233b82f6' stroke='none'/><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='512' height='512' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect width='100%' height='100%' fill='%233b82f6' stroke='none'/><circle cx='12' cy='12' r='10'/><polyline points='12 6 12 12 16 14'/></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}

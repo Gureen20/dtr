@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Time Record</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app" class="screen-dashboard">
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <div class="logo">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>DTR App</span>
+            </div>
+            
+            <div class="user-switcher-container">
+                <label for="active-user-select" class="subtitle" style="font-size: 0.8rem;">Current User:</label>
+                <select id="active-user-select" class="input-select user-dropdown">
+                    <option value="">-- No Users Added --</option>
+                </select>
+            </div>
+
+            <ul class="nav-links">
+                <li><button id="nav-dashboard" class="active">Dashboard</button></li>
+                <li><button id="nav-report">CS Form 48 Report</button></li>
+                <li><button id="nav-settings">Manage Users</button></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            
+            <!-- Global Not-Logged-In Error Block -->
+            <div id="no-user-warning" class="full-screen-warning">
+                <h2>No User Selected</h2>
+                <p>Please select an active user from the sidebar, or go to "Manage Users" to add a new employee.</p>
+                <button class="btn-primary" onclick="document.getElementById('nav-settings').click()">Go To User Management</button>
+            </div>
+
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="view active">
+                <header class="top-header">
+                    <div class="header-info">
+                        <h1 id="current-day-label">Today</h1>
+                        <p id="current-date-time" class="subtitle">...</p>
+                    </div>
+                </header>
+
+                <div class="dashboard-grid">
+                    <!-- Clocking Card -->
+                    <div class="card clocking-card">
+                        <h2>Time Clock</h2>
+                        <div class="clock-status">
+                            <span class="status-indicator"></span>
+                            <span id="current-status-text">Not Clocked In</span>
+                        </div>
+                        <div class="action-area">
+                            <button id="btn-clock-action" class="btn-primary">Clock In (AM)</button>
+                        </div>
+                        <div class="today-logs">
+                            <div class="log-entry"><span>AM Arrival</span> <b id="log-am-in">--:--</b></div>
+                            <div class="log-entry"><span>AM Departure</span> <b id="log-am-out">--:--</b></div>
+                            <div class="log-entry"><span>PM Arrival</span> <b id="log-pm-in">--:--</b></div>
+                            <div class="log-entry"><span>PM Departure</span> <b id="log-pm-out">--:--</b></div>
+                        </div>
+
+                        <!-- Manual Overtime Section -->
+                        <div class="overtime-section">
+                            <h3>Manual Adjustment</h3>
+                            <div class="form-group">
+                                <label for="manual-undertime">Undertime (Minutes)</label>
+                                <input type="number" id="manual-undertime" min="0" placeholder="0">
+                            </div>
+                            <button id="btn-save-adjustment" class="btn-secondary btn-sm">Save Adjustments</button>
+                        </div>
+                    </div>
+
+                    <!-- Images / Work log Card -->
+                    <div class="card media-card">
+                        <h2>Today's Work Images</h2>
+                        <p class="subtitle">Upload snapshots of what you accomplished today.</p>
+                        
+                        <div class="upload-zone" id="upload-zone">
+                            <input type="file" id="file-upload" accept="image/*" multiple hidden>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+                            <p>Click or drag images here to upload</p>
+                            <button class="btn-secondary" onclick="document.getElementById('file-upload').click()">Browse Files</button>
+                        </div>
+
+                        <div class="gallery" id="image-gallery">
+                            <!-- Images will be injected here -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Report View -->
+            <section id="view-report" class="view">
+                <header class="report-header">
+                    <h2>Generate Form 48</h2>
+                    <div class="report-controls">
+                        <select id="report-month" class="input-select">
+                            <!-- Populated dynamically -->
+                        </select>
+                        <select id="report-year" class="input-select">
+                            <!-- Populated dynamically -->
+                        </select>
+                        <button id="btn-print" class="btn-primary">Print Form 48</button>
+                    </div>
+                </header>
+
+                <div class="report-preview-container">
+                    <!-- The Printable Form 48 content goes here -->
+                    <div id="printable-form-container" class="printable-form-container">
+                        <!-- It will hold TWO copies of the form for "length twice" printing -->
+                    </div>
+                </div>
+            </section>
+
+             <!-- Settings / Users View -->
+             <section id="view-settings" class="view">
+                <header class="top-header">
+                    <h1>Manage Users</h1>
+                    <p class="subtitle">Add or edit employees using this machine.</p>
+                </header>
+                
+                <div class="dashboard-grid">
+                    <div class="card settings-card">
+                        <h2 id="user-form-title">Add New User</h2>
+                        <input type="hidden" id="edit-user-id" />
+                        <div class="form-group">
+                            <label for="setting-name">Full Name (For Form 48)</label>
+                            <input type="text" id="setting-name" placeholder="John Doe" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="setting-hours">Regular Prescribed Official Hours</label>
+                            <input type="text" id="setting-hours" placeholder="8:00 AM - 5:00 PM" autocomplete="off">
+                        </div>
+                        <div style="display:flex; gap: 1rem;">
+                            <button id="btn-save-user" class="btn-primary">Save User</button>
+                            <button id="btn-cancel-edit" class="btn-secondary" style="display:none;">Cancel Edit</button>
+                        </div>
+                    </div>
+
+                    <div class="card users-list-card">
+                        <h2>Registered Users</h2>
+                        <div id="users-list-container" class="users-list">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Script imports -->
+    <script src="app.js"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js');
+        });
+      }
+    </script>
+</body>
+</html>
