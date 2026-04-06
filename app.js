@@ -54,8 +54,7 @@ async function getLog(dateStr) {
         id, userId: activeUserId, date: dateStr,
         amIn: null, amOut: null, pmIn: null, pmOut: null,
         undertime: 0,
-        notes: "",
-        images: []
+        posts: []
     };
 }
 
@@ -252,8 +251,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.dataset.action = nextAction;
         
         document.getElementById('manual-undertime').value = undertime || '';
-        document.getElementById('daily-notes').value = currentLog.notes || '';
-        renderGallery();
+        renderFeed();
     };
 
     document.getElementById('btn-clock-action').addEventListener('click', async (e) => {
@@ -272,50 +270,119 @@ document.addEventListener('DOMContentLoaded', async () => {
         alert('Adjustments saved.');
     });
 
-    document.getElementById('btn-save-notes').addEventListener('click', async () => {
-        if(!activeUserId || !currentLog) return;
-        currentLog.notes = document.getElementById('daily-notes').value;
-        await saveLog(currentLog);
-        alert('Accomplishment report saved.');
-    });
+    // --- Blog Engine / Accomplishment Timeline ---
+    const postImageInput = document.getElementById('post-image');
+    const postImageNameSpan = document.getElementById('post-image-name');
+    const postTextarea = document.getElementById('post-text');
+    const btnPostUpdate = document.getElementById('btn-post-update');
+    
+    let currentPendingImageBase64 = null;
 
-    // --- Media Gallery ---
-    const uploadZone = document.getElementById('upload-zone');
-    const fileUpload = document.getElementById('file-upload');
-
-    uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
-    uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
-    uploadZone.addEventListener('drop', (e) => {
-        e.preventDefault(); uploadZone.classList.remove('dragover');
-        if(e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
-    });
-    fileUpload.addEventListener('change', (e) => handleFiles(e.target.files));
-
-    const handleFiles = (files) => {
-        if(!activeUserId || !currentLog) return;
-        Array.from(files).forEach(file => {
+    if (postImageInput) {
+        postImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) {
+                postImageNameSpan.innerText = '';
+                currentPendingImageBase64 = null;
+                return;
+            }
+            postImageNameSpan.innerText = file.name;
+            
             const reader = new FileReader();
-            reader.onload = async (e) => {
-                currentLog.images = currentLog.images || [];
-                currentLog.images.push(e.target.result);
-                await saveLog(currentLog);
-                renderGallery();
+            reader.onload = (ev) => {
+                currentPendingImageBase64 = ev.target.result;
             };
-            reader.readAsDataURL(file); 
+            reader.readAsDataURL(file);
         });
-    };
+    }
 
-    const renderGallery = () => {
-        const gallery = document.getElementById('image-gallery');
-        gallery.innerHTML = '';
-        if(currentLog && currentLog.images && currentLog.images.length) {
-            currentLog.images.forEach(dataUrl => {
-                const img = document.createElement('img');
-                img.src = dataUrl;
-                img.className = 'gallery-img';
-                gallery.appendChild(img);
-            });
+    if (btnPostUpdate) {
+        btnPostUpdate.addEventListener('click', async () => {
+            if(!activeUserId || !currentLog) return;
+            const text = postTextarea.value.trim();
+            if (!text && !currentPendingImageBase64) return alert("Please enter text or attach an image.");
+
+            const newPost = {
+                id: Date.now().toString(),
+                time: new Date().toISOString(),
+                text: text,
+                image: currentPendingImageBase64
+            };
+
+            currentLog.posts = currentLog.posts || [];
+            currentLog.posts.push(newPost);
+            
+            btnPostUpdate.disabled = true;
+            btnPostUpdate.innerText = "Posting...";
+            
+            await saveLog(currentLog);
+            
+            // Reset composer
+            postTextarea.value = '';
+            postImageInput.value = '';
+            postImageNameSpan.innerText = '';
+            currentPendingImageBase64 = null;
+            
+            btnPostUpdate.disabled = false;
+            btnPostUpdate.innerText = "Post Update";
+            
+            renderFeed();
+        });
+    }
+
+    const renderFeed = () => {
+        const feedContainer = document.getElementById('timeline-feed');
+        if (!feedContainer) return;
+        feedContainer.innerHTML = '';
+        
+        const posts = currentLog.posts || [];
+        
+        // Handle legacy logs that used notes/images format
+        if (posts.length === 0 && !currentLog.notes && (!currentLog.images || currentLog.images.length === 0)) {
+            feedContainer.innerHTML = '<p style="color: var(--text-muted); text-align: center;">No updates posted yet today.</p>';
+            return;
         }
+
+        let allHtml = '';
+
+        // Safely parse old format as a legacy post if needed
+        if (currentLog.notes || (currentLog.images && currentLog.images.length)) {
+           let legacyImagesHtml = '';
+           if(currentLog.images && currentLog.images.length) {
+               currentLog.images.forEach(img => {
+                   legacyImagesHtml += `<img src="${img}" style="max-width: 100%; border-radius: var(--radius-md); margin-top: 1rem; border: 1px solid var(--border); display: block;">`;
+               });
+           }
+           if (currentLog.notes || legacyImagesHtml) {
+               allHtml += `
+                   <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem;">
+                       <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">Legacy Entry</p>
+                       <p style="white-space: pre-wrap; line-height: 1.5; color: white;">${currentLog.notes || ''}</p>
+                       ${legacyImagesHtml}
+                   </div>
+               `;
+           }
+        }
+
+        // Render timeline posts (newest first)
+        const sortedPosts = [...posts].sort((a,b) => new Date(b.time) - new Date(a.time));
+        
+        sortedPosts.forEach(post => {
+            const timeStr = new Date(post.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            let imgHtml = post.image ? `<img src="${post.image}" style="max-width: 100%; border-radius: var(--radius-md); margin-top: 1rem; border: 1px solid rgba(255,255,255,0.1); display: block;">` : '';
+            
+            allHtml += `
+                <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg); padding: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem;">
+                        <strong style="color: var(--accent); font-size: 0.9rem;">${timeStr}</strong>
+                    </div>
+                    <p style="white-space: pre-wrap; line-height: 1.5; color: white;">${post.text}</p>
+                    ${imgHtml}
+                </div>
+            `;
+        });
+
+        feedContainer.innerHTML = allHtml;
     };
 
     // --- Profile Management Engine (Replaces Users Engine) ---
