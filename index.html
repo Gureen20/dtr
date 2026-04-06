@@ -59,6 +59,7 @@
 
             <ul class="nav-links">
                 <li><button id="nav-dashboard" class="active">Dashboard</button></li>
+                <li><button id="nav-timeline">Accomplishments</button></li>
                 <li><button id="nav-report">CS Form 48 Report</button></li>
                 <li><button id="nav-settings">My Profile</button></li>
             </ul>
@@ -113,40 +114,53 @@
                             </div>
                             <button id="btn-save-adjustment" class="btn-secondary btn-sm">Save Adjustments</button>
                         </div>
+                </div>
+            </section>
+
+            <!-- Timeline View -->
+            <section id="view-timeline" class="view">
+                <header class="top-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem;">
+                    <div class="header-info">
+                        <h1>Accomplishments Timeline</h1>
+                        <p class="subtitle">Post updates and view your historical logs.</p>
+                    </div>
+                    <div class="filter-controls">
+                        <select id="timeline-filter" class="input-select" style="padding: 0.5rem 1rem; background: rgba(0,0,0,0.3); color: white; border: 1px solid var(--border); border-radius: var(--radius-md); font-size: 0.9rem;">
+                            <option value="all">All Time</option>
+                            <option value="this_week">This Week</option>
+                            <option value="last_week">Last Week</option>
+                            <option value="this_month">This Month</option>
+                        </select>
+                    </div>
+                </header>
+
+                <div class="card media-card">
+                    <!-- Composer -->
+                    <div class="form-group" style="background: rgba(0,0,0,0.2); border-radius: var(--radius-lg); border: 1px solid var(--border);">
+                        <div id="composer-edit-alert" class="edit-indicator hidden">
+                            <span>Editing an existing post...</span>
+                            <button id="btn-cancel-edit" style="background: transparent; border: none; color: inherit; font-size: 0.8rem; text-decoration: underline; cursor: pointer;">Cancel</button>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <textarea id="post-text" style="width: 100%; min-height: 80px; resize: none; background: transparent; border: none; outline: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 0.5rem 0; margin-bottom: 1rem; font-family: inherit; color: white;" placeholder="What are you working on right now?"></textarea>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <div style="display: flex; align-items: center;">
+                                    <input type="file" id="post-image" accept="image/*" hidden>
+                                    <button class="btn-secondary btn-sm" onclick="document.getElementById('post-image').click()" style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                        Attach Image
+                                    </button>
+                                    <span id="post-image-name" style="font-size: 0.8rem; margin-left: 0.75rem; color: var(--text-muted);"></span>
+                                </div>
+                                <button id="btn-post-update" class="btn-primary btn-sm" style="padding: 0.6rem 1.2rem;">Post Update</button>
+                            </div>
+                        </div>
                     </div>
 
-                    <!-- Timeline / Blog Feed Card -->
-                    <div class="card media-card" style="grid-column: span 2;">
-                        <h2>Accomplishments Timeline</h2>
-                        <p class="subtitle">Post your updates and attach images like a blog feed.</p>
-                        
-                        <!-- Composer -->
-                        <div class="form-group" style="margin-top: 1.5rem; background: rgba(0,0,0,0.2); border-radius: var(--radius-lg); border: 1px solid var(--border);">
-                            <div id="composer-edit-alert" class="edit-indicator hidden">
-                                <span>Editing an existing post...</span>
-                                <button id="btn-cancel-edit" style="background: transparent; border: none; color: inherit; font-size: 0.8rem; text-decoration: underline;">Cancel</button>
-                            </div>
-                            <div style="padding: 1.5rem;">
-                                <textarea id="post-text" style="width: 100%; min-height: 80px; resize: none; background: transparent; border: none; outline: none; border-bottom: 1px solid var(--border); border-radius: 0; padding: 0.5rem 0; margin-bottom: 1rem;" placeholder="What are you working on right now?"></textarea>
-                                
-                                <div style="display: flex; justify-content: space-between; align-items: center;">
-                                    <div style="display: flex; align-items: center;">
-                                        <input type="file" id="post-image" accept="image/*" hidden>
-                                        <button class="btn-secondary btn-sm" onclick="document.getElementById('post-image').click()" style="display: flex; align-items: center; gap: 0.5rem;">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                                            Attach Image
-                                        </button>
-                                        <span id="post-image-name" style="font-size: 0.8rem; margin-left: 0.75rem; color: var(--text-muted);"></span>
-                                    </div>
-                                    <button id="btn-post-update" class="btn-primary btn-sm" style="padding: 0.6rem 1.2rem;">Post Update</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Feed -->
-                        <div id="timeline-feed" style="margin-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
-                            <!-- Feed items injected here -->
-                        </div>
+                    <!-- Feed -->
+                    <div id="timeline-feed" style="margin-top: 2rem; display: flex; flex-direction: column; gap: 1.5rem;">
+                        <!-- Feed items injected here -->
                     </div>
                 </div>
             </section>

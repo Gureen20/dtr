@@ -164,10 +164,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Core Navigation ---
     const navDashboard = document.getElementById('nav-dashboard');
+    const navTimeline = document.getElementById('nav-timeline');
     const navReport = document.getElementById('nav-report');
     const navSettings = document.getElementById('nav-settings');
     const views = document.querySelectorAll('.view');
-    const navButtons = [navDashboard, navReport, navSettings];
+    const navButtons = [navDashboard, navTimeline, navReport, navSettings];
 
     const switchView = (viewId, activeNav) => {
         views.forEach(v => v.classList.remove('active'));
@@ -175,9 +176,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.getElementById(viewId).classList.add('active');
         activeNav.classList.add('active');
         if(viewId === 'view-report') refreshReportOptions();
+        if(viewId === 'view-timeline') renderFeed();
     };
 
     navDashboard.addEventListener('click', () => switchView('view-dashboard', navDashboard));
+    navTimeline.addEventListener('click', () => switchView('view-timeline', navTimeline));
     navReport.addEventListener('click', () => switchView('view-report', navReport));
     navSettings.addEventListener('click', () => switchView('view-settings', navSettings));
 
@@ -251,7 +254,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         btn.dataset.action = nextAction;
         
         document.getElementById('manual-undertime').value = undertime || '';
-        renderFeed();
     };
 
     document.getElementById('btn-clock-action').addEventListener('click', async (e) => {
@@ -277,9 +279,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnPostUpdate = document.getElementById('btn-post-update');
     const composerEditAlert = document.getElementById('composer-edit-alert');
     const btnCancelEdit = document.getElementById('btn-cancel-edit');
+    const timelineFilter = document.getElementById('timeline-filter');
     
     let currentPendingImageBase64 = null;
     let editingPostId = null;
+    let editingParentLogId = null;
+
+    if (timelineFilter) timelineFilter.addEventListener('change', () => renderFeed());
 
     function resizeImage(file, maxWidth, maxHeight) {
         return new Promise((resolve) => {
@@ -333,36 +339,40 @@ document.addEventListener('DOMContentLoaded', async () => {
         postImageNameSpan.innerText = '';
         currentPendingImageBase64 = null;
         editingPostId = null;
+        editingParentLogId = null;
         composerEditAlert.classList.add('hidden');
         btnPostUpdate.innerText = "Post Update";
     };
 
     if (btnCancelEdit) {
-        btnCancelEdit.addEventListener('click', () => {
-            resetComposer();
-        });
+        btnCancelEdit.addEventListener('click', () => resetComposer());
     }
 
     if (btnPostUpdate) {
         btnPostUpdate.addEventListener('click', async () => {
-            if(!activeUserId || !currentLog) return;
+            if(!activeUserId) return;
             const text = postTextarea.value.trim();
             if (!text && !currentPendingImageBase64) return alert("Please enter text or attach an image.");
-
-            currentLog.posts = currentLog.posts || [];
             
             btnPostUpdate.disabled = true;
             btnPostUpdate.innerText = "Saving...";
 
-            if (editingPostId) {
-                const postIndex = currentLog.posts.findIndex(p => p.id === editingPostId);
-                if (postIndex !== -1) {
-                    currentLog.posts[postIndex].text = text;
-                    if (currentPendingImageBase64) {
-                        currentLog.posts[postIndex].image = currentPendingImageBase64;
+            if (editingPostId && editingParentLogId) {
+                const snapshot = await get(ref(db, 'logs/' + editingParentLogId));
+                if (snapshot.exists()) {
+                    let targetLog = snapshot.val();
+                    const postIndex = targetLog.posts.findIndex(p => p.id === editingPostId);
+                    if (postIndex !== -1) {
+                        targetLog.posts[postIndex].text = text;
+                        if (currentPendingImageBase64) {
+                            targetLog.posts[postIndex].image = currentPendingImageBase64;
+                        }
+                        await saveLog(targetLog);
                     }
                 }
             } else {
+                if(!currentLog) currentLog = await getLog(getTodayStr()); // fallback
+                currentLog.posts = currentLog.posts || [];
                 const newPost = {
                     id: Date.now().toString(),
                     time: new Date().toISOString(),
@@ -370,61 +380,76 @@ document.addEventListener('DOMContentLoaded', async () => {
                     image: currentPendingImageBase64
                 };
                 currentLog.posts.push(newPost);
+                await saveLog(currentLog);
             }
             
-            await saveLog(currentLog);
             resetComposer();
-            
             btnPostUpdate.disabled = false;
             renderFeed();
         });
     }
 
-    const renderFeed = () => {
+    async function fetchAllPosts() {
+        if(!activeUserId) return [];
+        const snapshot = await get(ref(db, 'logs'));
+        if (!snapshot.exists()) return [];
+        let allPosts = [];
+        const allLogs = Object.values(snapshot.val());
+        allLogs.forEach(log => {
+            if(log.userId === activeUserId && log.posts) {
+                log.posts.forEach(p => {
+                    p._parentLogId = log.id;
+                    allPosts.push(p);
+                });
+            }
+        });
+        return allPosts.sort((a,b) => new Date(b.time) - new Date(a.time));
+    }
+
+    const renderFeed = async () => {
         const feedContainer = document.getElementById('timeline-feed');
         if (!feedContainer) return;
-        feedContainer.innerHTML = '';
+        feedContainer.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Loading posts...</p>';
         
-        const posts = currentLog.posts || [];
+        let allPosts = await fetchAllPosts();
         
-        // Handle legacy logs that used notes/images format
-        if (posts.length === 0 && !currentLog.notes && (!currentLog.images || currentLog.images.length === 0)) {
-            feedContainer.innerHTML = '<p style="color: var(--text-muted); text-align: center;">No updates posted yet today.</p>';
+        const filterVal = timelineFilter ? timelineFilter.value : 'all';
+        const now = new Date();
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay()); // Sunday start is JS default
+        startOfWeek.setHours(0,0,0,0);
+        
+        const startOfLastWeek = new Date(startOfWeek);
+        startOfLastWeek.setDate(startOfLastWeek.getDate() - 7);
+        
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        if (filterVal === 'this_week') {
+            allPosts = allPosts.filter(p => new Date(p.time) >= startOfWeek);
+        } else if (filterVal === 'last_week') {
+            allPosts = allPosts.filter(p => {
+                const d = new Date(p.time);
+                return d >= startOfLastWeek && d < startOfWeek;
+            });
+        } else if (filterVal === 'this_month') {
+            allPosts = allPosts.filter(p => new Date(p.time) >= startOfMonth);
+        }
+
+        if (allPosts.length === 0) {
+            feedContainer.innerHTML = '<p style="color: var(--text-muted); text-align: center;">No updates found for this time period.</p>';
             return;
         }
 
         let allHtml = '';
-
-        // Safely parse old format as a legacy post if needed
-        if (currentLog.notes || (currentLog.images && currentLog.images.length)) {
-           let legacyImagesHtml = '';
-           if(currentLog.images && currentLog.images.length) {
-               currentLog.images.forEach(img => {
-                   legacyImagesHtml += `<img src="${img}" style="max-width: 100%; border-radius: var(--radius-md); margin-top: 1rem; border: 1px solid var(--border); display: block;">`;
-               });
-           }
-           if (currentLog.notes || legacyImagesHtml) {
-               allHtml += `
-                   <div style="background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem;">
-                       <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">Legacy Entry</p>
-                       <p style="white-space: pre-wrap; line-height: 1.5; color: white;">${currentLog.notes || ''}</p>
-                       ${legacyImagesHtml}
-                   </div>
-               `;
-           }
-        }
-
-        // Render timeline posts (newest first)
-        const sortedPosts = [...posts].sort((a,b) => new Date(b.time) - new Date(a.time));
-        
-        sortedPosts.forEach(post => {
-            const timeStr = new Date(post.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        allPosts.forEach(post => {
+            const d = new Date(post.time);
+            const timeStr = d.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
             let imgHtml = post.image ? `<img src="${post.image}" style="max-width: 100%; border-radius: var(--radius-md); margin-top: 1rem; border: 1px solid rgba(255,255,255,0.1); display: block;">` : '';
             
             let downloadBtn = post.image ? `<a href="${post.image}" download="post_${post.id}.jpg" class="btn-icon-only" title="Download Image"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg></a>` : '';
 
             allHtml += `
-                <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg); padding: 1.5rem;" data-post-id="${post.id}">
+                <div style="background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: var(--radius-lg); padding: 1.5rem;" data-post-id="${post.id}" data-parent-log="${post._parentLogId}">
                     <div style="display: flex; justify-content: space-between; align-items:flex-start; margin-bottom: 0.75rem;">
                         <strong style="color: var(--accent); font-size: 0.9rem;">${timeStr}</strong>
                         <div class="post-actions-bar">
@@ -433,7 +458,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                             </button>
                             <button class="btn-icon-only danger action-delete" title="Delete Post">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2-2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                             </button>
                         </div>
                     </div>
@@ -445,32 +470,47 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         feedContainer.innerHTML = allHtml;
 
-        // Attach event listeners for delete and edit
         feedContainer.querySelectorAll('.action-delete').forEach(btn => {
             btn.addEventListener('click', async (e) => {
-                const postId = e.currentTarget.closest('div[data-post-id]').dataset.postId;
+                const el = e.currentTarget.closest('div[data-post-id]');
+                const postId = el.dataset.postId;
+                const parentId = el.dataset.parentLog;
                 if(confirm("Are you sure you want to delete this post?")) {
-                    currentLog.posts = currentLog.posts.filter(p => p.id !== postId);
-                    await saveLog(currentLog);
-                    renderFeed();
+                    const snap = await get(ref(db, 'logs/' + parentId));
+                    if(snap.exists()) {
+                        let l = snap.val();
+                        l.posts = l.posts.filter(p => p.id !== postId);
+                        await saveLog(l);
+                        if(currentLog && currentLog.id === parentId) currentLog = l; // Keep local sync
+                        renderFeed();
+                    }
                 }
             });
         });
 
         feedContainer.querySelectorAll('.action-edit').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const postId = e.currentTarget.closest('div[data-post-id]').dataset.postId;
-                const post = currentLog.posts.find(p => p.id === postId);
-                if (post) {
-                    editingPostId = post.id;
-                    postTextarea.value = post.text;
-                    currentPendingImageBase64 = null; // Don't wipe the DB image unless a new one is selected
-                    postImageNameSpan.innerText = post.image ? "(Image attached)" : "";
-                    
-                    composerEditAlert.classList.remove('hidden');
-                    btnPostUpdate.innerText = "Save Changes";
-                    postTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    postTextarea.focus();
+            btn.addEventListener('click', async (e) => {
+                const el = e.currentTarget.closest('div[data-post-id]');
+                const postId = el.dataset.postId;
+                const parentId = el.dataset.parentLog;
+                
+                // Fetch the actual log object since it might be historical
+                const snap = await get(ref(db, 'logs/' + parentId));
+                if(snap.exists()) {
+                    let l = snap.val();
+                    const post = l.posts.find(p => p.id === postId);
+                    if (post) {
+                        editingPostId = post.id;
+                        editingParentLogId = parentId;
+                        postTextarea.value = post.text;
+                        currentPendingImageBase64 = null; 
+                        postImageNameSpan.innerText = post.image ? "(Image attached)" : "";
+                        
+                        composerEditAlert.classList.remove('hidden');
+                        btnPostUpdate.innerText = "Save Changes";
+                        postTextarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        postTextarea.focus();
+                    }
                 }
             });
         });
