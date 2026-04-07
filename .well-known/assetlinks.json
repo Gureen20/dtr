@@ -1,1 +1,11 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.tesda.dtr",
+    "sha256_cert_fingerprints": [
+      "17:1D:88:16:2E:36:48:B2:06:61:46:B6:55:B3:90:47:2F:5C:85:A2:0C:DC:20:39:EE:06:7A:83:A7:BD:B3:5E"
+    ]
+  }
+}]
 
